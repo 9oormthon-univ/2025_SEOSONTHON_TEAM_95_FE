@@ -70,7 +70,7 @@ export default function App() {
           stats={sessionStats}   // ✅ 전달
         />
       )}
-      {view === "loading" && <LoadingView onCancel={reset} />}
+      {view === "loading" && (<LoadingView  file={form.file} onCancel={reset} />)}
       {view === "result" && (
         <ResultView data={result} file={form.file} onRetry={reset} />
       )}
