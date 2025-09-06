@@ -1,12 +1,27 @@
 /* ===== Base (Dark) ===== */
 * { box-sizing: border-box; }
 :root { color-scheme: dark; }
+
 html, body, #root { height: 100%; }
 body {
   margin: 0;
   background: #0f1115;
   color: #eaecef;
   font-family: -apple-system, system-ui, Segoe UI, Roboto, sans-serif;
+}
+
+/* ===== Theme Variables ===== */
+.theme-light {
+  --card: #ffffff;
+  --border: #e6e8ee;
+  --shadow: 0 8px 24px rgba(16,24,40,.08);
+  color: #111827;
+}
+.theme-dark {
+  --card: #151821;
+  --border: #22283a;
+  --shadow: none;
+  color: #eaecef;
 }
 
 /* ===== Common ===== */
@@ -52,7 +67,7 @@ body {
 .dash-topbar {
   display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
 }
-.brand { font-weight: 900; font-size: 20px; }
+.brand { font-weight: 900; font-size: 20px; color: #4c79ff;}
 .brand .check { color: #7f8cff; margin-left: 4px; }
 
 .dash-search { flex: 1; display: flex; gap: 8px; }
@@ -104,7 +119,7 @@ body {
 
 .caption { opacity: .7; font-size: 12px; text-align: center; margin-top: 8px; }
 
-/* ===== Form section (기존 입력 화면용) ===== */
+/* ===== Form section ===== */
 .field { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
 .field > label { font-size: 13px; opacity: .85; }
 .actions { display: flex; gap: 8px; margin-top: 6px; }
@@ -124,7 +139,6 @@ body {
 @media (max-width: 900px) {
   .kpi-row { grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
-
 
 /* ===== Loading Panel ===== */
 .panel {
@@ -165,7 +179,6 @@ body {
 .step--done .step-dot { background:#10b981; border-color:#10b981; }
 .step-text { color:#111827; }
 
-
 /* ===== Error Panel ===== */
 .error-panel { padding: 20px; border-radius: 18px; }
 .error-row { display:flex; gap:14px; align-items:flex-start; }
@@ -178,9 +191,7 @@ body {
 .error-title { font-weight:800; color:#0f172a; margin-bottom:6px; }
 .error-desc { color:#475569; margin-bottom:10px; }
 .error-note { color:#64748b; font-size:12px; }
-
 .error-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:16px; }
-
 
 /* ===== Result Card ===== */
 .result-card {
@@ -219,8 +230,8 @@ body {
 .score-top { display:flex; justify-content:space-between; font-size:12px; color:#475569; margin-bottom:6px; }
 .score-rail { height:8px; border-radius:999px; background:#e6e8ee; overflow:hidden; display:flex; }
 .score-bar { height:100%; border-radius:999px; }
-.score-bar.ok   { background:#4ade80; }   /* 초록 */
-.score-bar.sus  { background:#f97316; }   /* 주황 */
+.score-bar.ok   { background:#4ade80; }
+.score-bar.sus  { background:#f97316; }
 .percent.ok   { color:#16a34a; font-weight:800; }
 .percent.sus  { color:#f97316; font-weight:800; }
 
@@ -239,3 +250,21 @@ body {
 .secondary-actions { display:flex; justify-content:space-between; align-items:center; margin-top:10px; }
 .reactions { display:flex; gap:8px; }
 .left-note { margin-top: 10px; }
+
+/* ===== Simple Loading View ===== */
+.loading-wrap {
+  min-height: 60vh;
+  display:flex; align-items:center; justify-content:center;
+}
+.loading-card {
+  display:flex; flex-direction:column; align-items:center; gap:10px;
+  padding:24px 28px; border:1px solid #e5e7ef; border-radius:14px;
+  background:#fff; box-shadow:0 6px 20px rgba(0,0,0,.06);
+}
+.loading-title { font-weight:700; font-size:16px; color:#222; }
+.loading-desc { font-size:13px; color:#6b7280; }
+.btn.ghost {
+  background:#f8f9ff; border:1px solid #e5e7ef; border-radius:8px;
+  padding:8px 12px; cursor:pointer;
+}
+.btn.ghost:hover { background:#f1f2fb; }

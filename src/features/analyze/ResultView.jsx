@@ -1,31 +1,32 @@
+// ResultView.jsx (핵심 부분만)
 import { useMemo, useEffect } from "react";
 
-export default function ResultView({ data, file, onRetry, onGoBoard }) {
+export default function ResultView({ data, file, onRetry }) {
   if (!data) return null;
 
-  // ----- 미리보기 (이미지일 때만) -----
+  // 1) 미리보기: 파일이 있으면 파일, 없으면 서버 imageUrl
   const previewUrl = useMemo(() => {
-    if (!file || !file.type?.startsWith("image/")) return null;
-    return URL.createObjectURL(file);
-  }, [file]);
+    if (file && file.type?.startsWith("image/")) {
+      return URL.createObjectURL(file);
+    }
+    return data.imageUrl || null;
+  }, [file, data?.imageUrl]);
 
   useEffect(() => {
-    return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); };
-  }, [previewUrl]);
+    return () => { if (file && previewUrl && previewUrl.startsWith("blob:")) URL.revokeObjectURL(previewUrl); };
+  }, [previewUrl, file]);
 
-  // ----- 점수 가공 -----
-  // 일치도(consistency.score)와 AI 의심(authenticity.ai_score)을 조합해서
-  // "실사 가능성"을 대략 계산 (임시 로직: 가중 평균)
-  const consistency = clamp01(data.consistency?.score ?? 0.5);
-  const ai = clamp01(data.authenticity?.ai_score ?? 0.5);
-  const threshold = data.authenticity?.threshold ?? 0.7;
+  // 2) 점수 매핑 (서버는 0~100이므로 0~1로 정규화)
+  const aiProb   = clamp01((data.aiProbability ?? 0) / 100);
+  const realProb = clamp01((data.realProbability ?? (100 - (data.aiProbability ?? 0))) / 100);
 
-  const realProb = clamp01(consistency * 0.6 + (1 - ai) * 0.4);   // 0~1
-  const aiProb   = ai;                                            // 0~1
+  // 3) 배지/톤: riskLevel 우선, 없으면 aiProb로 계산
+  const badge = getBadgeFromServer(data.riskLevel, aiProb);
 
-  const badge = getBadge(aiProb, threshold); // {label, tone}
-
-  const dateStr = new Date().toISOString().slice(0,16).replace("T"," ");
+  // 4) 현재 시간
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")} `
+                + `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
 
   return (
     <div className="theme-light">
@@ -35,54 +36,42 @@ export default function ResultView({ data, file, onRetry, onGoBoard }) {
         </div>
 
         <section className="result-card">
-          {/* 헤더: 파일명 + 배지 + 시간 */}
           <div className="result-head">
-            <div className="name">{file?.name || "분석 결과"}</div>
+            <div className="name">{data.analysisId ? `#${data.analysisId}` : (file?.name || "분석 결과")}</div>
             <div className={`badge ${badge.tone}`}>{badge.label}</div>
             <div className="time">{dateStr}</div>
           </div>
 
           <div className="result-body">
-            {/* 좌측: 미리보기 */}
+            {/* 좌측: 미리보기 + 점수 */}
             <div className="result-left">
               <div className="preview-box">
-                {previewUrl ? (
-                  <img src={previewUrl} alt="preview" />
-                ) : (
-                  <div className="preview-empty">preview</div>
-                )}
+                {previewUrl ? <img src={previewUrl} alt="preview" /> : <div className="preview-empty">preview</div>}
               </div>
 
-              {/* 점수 바 2개 */}
               <div className="score-block">
                 <ScoreRow label="실사 가능성" value={realProb} tone="ok" />
                 <ScoreRow label="AI 의심 신호" value={aiProb} tone="sus" rightPercent />
               </div>
 
-              <p className="caption left-note">
-                ⓘ 결과는 확률로 제공됩니다. 원본은 동의 없이 저장되지 않습니다.
-              </p>
+              <p className="caption left-note">ⓘ 결과는 확률로 제공됩니다. 원본은 동의 없이 저장되지 않습니다.</p>
             </div>
 
-            {/* 우측: 결론/근거/임계값 안내 */}
+            {/* 우측: 결론/근거/임계값 */}
             <div className="result-right">
               <div className="verdict">
                 <div className="title">결론 (Verdict)</div>
-                <p className="desc">
-                  {badge.tone === "danger" && "판단이 매우 불확실합니다. 사실 검증이 강하게 권장됩니다."}
-                  {badge.tone === "warn"   && "판단이 불확실합니다. 추가적인 사실 확인이 권장됩니다."}
-                  {badge.tone === "safe"   && "실제일 가능성이 높습니다. 다만 추가 확인을 권장합니다."}
-                </p>
+                <p className="desc">{data.conclusion || badge.defaultDesc}</p>
               </div>
 
-              <div className="evidence">
-                <div className="title">주요 근거</div>
-                <ul>
-                  <li>메타데이터/EXIF에서 편집 이력 단서 탐지 여부</li>
-                  <li>픽셀 레벨 합성 경계 유사 패턴 탐지</li>
-                  <li>유사 출처 고차 비교 시 동일 이미지/문구 다수 확인</li>
-                </ul>
-              </div>
+              {Array.isArray(data.evidences) && data.evidences.length > 0 && (
+                <div className="evidence">
+                  <div className="title">주요 근거</div>
+                  <ul>
+                    {data.evidences.map((v, i) => <li key={i}>{v}</li>)}
+                  </ul>
+                </div>
+              )}
 
               <div className="legend card">
                 <div className="legend-title">FakeCheck 임계값</div>
@@ -93,7 +82,6 @@ export default function ResultView({ data, file, onRetry, onGoBoard }) {
                 </div>
               </div>
 
-              {/* 액션들 */}
               <div className="actions">
                 <button className="btn" onClick={onRetry}>⟲ Back</button>
                 <button className="primary">⬇ 리포트 다운로드</button>
@@ -114,10 +102,8 @@ export default function ResultView({ data, file, onRetry, onGoBoard }) {
   );
 }
 
-/* ───── 소컴포넌트 & 유틸 ───── */
-
 function ScoreRow({ label, value, tone = "ok", rightPercent = false }) {
-  const pct = Math.round(value * 100);
+  const pct = (value * 100).toFixed(1);
   return (
     <div className="score-row">
       <div className="score-top">
@@ -132,10 +118,18 @@ function ScoreRow({ label, value, tone = "ok", rightPercent = false }) {
   );
 }
 
-function getBadge(aiProb, threshold) {
-  if (aiProb >= Math.max(0.85, threshold + 0.1)) return { label: "위험", tone: "danger" };
-  if (aiProb >= threshold) return { label: "주의", tone: "warn" };
-  return { label: "안전", tone: "safe" };
+function getBadgeFromServer(riskLevel, aiProb) {
+  // 서버 riskLevel이 오면 그대로 사용
+  if (typeof riskLevel === "string") {
+    const key = riskLevel.trim();
+    if (key.includes("위험"))  return { label: "위험", tone: "danger", defaultDesc: "판단이 매우 불확실합니다. 사실 검증이 권장됩니다." };
+    if (key.includes("주의"))  return { label: "주의", tone: "warn",   defaultDesc: "판단이 불확실합니다. 추가 확인을 권장합니다." };
+    if (key.includes("안전"))  return { label: "안전", tone: "safe",   defaultDesc: "실제일 가능성이 높습니다. 다만 추가 확인을 권장합니다." };
+  }
+  // fallback: AI 확률 기반
+  if (aiProb >= 0.85) return { label: "위험", tone: "danger", defaultDesc: "판단이 매우 불확실합니다. 사실 검증이 권장됩니다." };
+  if (aiProb >= 0.70) return { label: "주의", tone: "warn",   defaultDesc: "판단이 불확실합니다. 추가 확인을 권장합니다." };
+  return { label: "안전", tone: "safe", defaultDesc: "실제일 가능성이 높습니다. 다만 추가 확인을 권장합니다." };
 }
 
 function clamp01(n) { return Math.min(1, Math.max(0, n)); }

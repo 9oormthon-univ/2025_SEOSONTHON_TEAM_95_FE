@@ -1,3 +1,5 @@
+/* 에러 화면 없애기  */
+
 const ERROR_MAP = {
   NETWORK: {
     icon: "📡",

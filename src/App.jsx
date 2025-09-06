@@ -1,78 +1,79 @@
-import { useState } from "react";
+// App.jsx
+import { useRef, useState } from "react";
 import InitView from "./features/analyze/InitView.jsx";
 import LoadingView from "./features/analyze/LoadingView.jsx";
 import ResultView from "./features/analyze/ResultView.jsx";
-import BoardView from "./features/analyze/BoardView.jsx";
-import {analyzeMock} from "./shared/api/analyze.js";
-import ErrorView from "./features/ErrorView.jsx";
+import { analyze } from "./shared/api/analyze.js";
 
-function App() {
-  // 현재 어떤 화면을 보여줄지 상태 정하자
+export default function App() {
   const [view, setView] = useState("init");
-
-  //사용자가 입력한 데이터 상태 
-  const [form, setForm] = useState({url: "", text: "", file: null});
-
-  //분석 결과 상태 
+  const [form, setForm] = useState({ url: "", text: "", file: null });
   const [result, setResult] = useState(null);
 
-  //에러 뷰 
-  const [errorMsg, setErrorMsg] = useState("");
+  // ✅ 세션 누적 통계
+  const [sessionStats, setSessionStats] = useState({
+    total: 0,
+    ok: 0,
+    fake: 0,
+    suspect: 0,
+  });
 
-  //분석 실행 
-  const runAnalyze = async() => {
-    if(!form.url && !form.text && !form.file) {
-      return alert("입력 되지 않았습니다. ");
+  const activeJobIdRef = useRef(0);
+
+  const runAnalyze = async (payloadFromChild) => {
+    const payload = payloadFromChild ?? form;
+    if (!payload.file) {
+      alert("파일을 첨부해주세요.");
+      return;
     }
+
+    const jobId = ++activeJobIdRef.current;
     setView("loading");
+
     try {
-      const data = await analyzeMock(form); // 더미 API 호출 
+      const data = await analyze(payload);
+      if (jobId !== activeJobIdRef.current) return;
+
       setResult(data);
+
+      // ✅ 위험 레벨에 따라 카운트 증가
+      setSessionStats((prev) => ({
+        total: prev.total + 1,
+        ok: prev.ok + (data.riskLevel === "안전" ? 1 : 0),
+        suspect: prev.suspect + (data.riskLevel === "주의" ? 1 : 0),
+        fake: prev.fake + (data.riskLevel === "위험" ? 1 : 0),
+      }));
+
       setView("result");
-    }catch(e) {
+    } catch (e) {
+      if (jobId !== activeJobIdRef.current) return;
       console.error(e);
-      setError({code: e.code || "ANAYSIS_ERROR"})
-      setView("error");
+      alert(e.message || "분석 실패");
+      setView("init");
     }
   };
 
-  // 초기화 
-  const reset =() => {
-    setForm({url: "", text: "", file: null});
+  const reset = () => {
+    activeJobIdRef.current++;
+    setForm({ url: "", text: "", file: null });
     setResult(null);
     setView("init");
   };
-  
 
   return (
     <>
       {view === "init" && (
-        <InitView 
-        form={form} 
-        setForm={setForm} 
-        onSubmit={runAnalyze}
-        onOpenBoard={()=> setView("board")} //게시판 열기 
-        /> 
+        <InitView
+          form={form}
+          setForm={setForm}
+          onSubmit={runAnalyze}
+          stats={sessionStats}   // ✅ 전달
+        />
       )}
-      {view === "loading" &&(
-        <LoadingView file={form.file} onCancel={reset}/>)}
-      {view === "board"   && <BoardView onBack={() => setView("init")} />}
-        {view === "error" && (
-          <ErrorView
-            message={errorMsg}
-            onBack={()=> setView("init")}
-            onRetry={()=>{
-              setErrorMsg("");
-              runAnalyze();
-            }}
-            />
-        )}
-        {view === "result" && (
-        <ResultView data={result} file={form.file} onRetry={reset} onGoBoard={() => setView("board")} />
-    )}
-
+      {view === "loading" && <LoadingView onCancel={reset} />}
+      {view === "result" && (
+        <ResultView data={result} file={form.file} onRetry={reset} />
+      )}
     </>
   );
 }
-
-export default App
